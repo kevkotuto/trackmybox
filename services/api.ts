@@ -11,7 +11,7 @@ import {
   ContainerPriority,
 } from '../types';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://trackmybox.generale-ci.com/api';
 
 const client: AxiosInstance = axios.create({
   baseURL: BASE_URL,

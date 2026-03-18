@@ -1,145 +1,156 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/colors';
-import { Container, ContainerType, ContainerStatus, ContainerPriority } from '@/types';
-import TMBCard from '@/components/ui/TMBCard';
-import TMBBadge from '@/components/ui/TMBBadge';
+import { Colors } from "@/constants/colors";
+import {
+    Container,
+    ContainerPriority,
+    ContainerStatus,
+    ContainerType,
+} from "@/types";
+import { useRouter } from "expo-router";
+import { SymbolView as Icon } from "expo-symbols";
+import React from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface ContainerCardProps {
   container: Container;
   roomName?: string;
 }
 
-const typeIcons: Record<ContainerType, keyof typeof Ionicons.glyphMap> = {
-  [ContainerType.CARTON]: 'cube-outline',
-  [ContainerType.SAC]: 'bag-outline',
-  [ContainerType.VALISE]: 'briefcase-outline',
-  [ContainerType.BOITE]: 'archive-outline',
-  [ContainerType.DOSSIER]: 'folder-outline',
-  [ContainerType.SACHET]: 'pricetag-outline',
+const typeIcons: Record<ContainerType, any> = {
+  [ContainerType.CARTON]: "shippingbox.fill",
+  [ContainerType.SAC]: "bag.fill",
+  [ContainerType.VALISE]: "suitcase.fill",
+  [ContainerType.BOITE]: "archivebox.fill",
+  [ContainerType.DOSSIER]: "folder.fill",
+  [ContainerType.SACHET]: "tag.fill",
 };
 
 const statusLabels: Record<ContainerStatus, string> = {
-  [ContainerStatus.EMBALLE]: 'Emball\u00e9',
-  [ContainerStatus.CAMION]: 'Camion',
-  [ContainerStatus.DEPOSE]: 'D\u00e9pos\u00e9',
-  [ContainerStatus.DEBALLE]: 'D\u00e9ball\u00e9',
+  [ContainerStatus.EMBALLE]: "Emballé",
+  [ContainerStatus.CAMION]: "En camion",
+  [ContainerStatus.DEPOSE]: "Déposé",
+  [ContainerStatus.DEBALLE]: "Déballé",
 };
 
-const priorityLabels: Record<ContainerPriority, string> = {
-  [ContainerPriority.URGENT]: 'Urgent',
-  [ContainerPriority.SEMAINE]: 'Semaine',
-  [ContainerPriority.PAS_PRESSE]: 'Pas press\u00e9',
-};
-
-const priorityBorderColors: Record<ContainerPriority, string> = {
+const priorityAccent: Record<ContainerPriority, string> = {
   [ContainerPriority.URGENT]: Colors.status.error,
   [ContainerPriority.SEMAINE]: Colors.status.warning,
   [ContainerPriority.PAS_PRESSE]: Colors.status.success,
 };
 
-export default function ContainerCard({ container, roomName }: ContainerCardProps) {
-  const router = useRouter();
+const statusTextColor: Record<ContainerStatus, string> = {
+  [ContainerStatus.EMBALLE]: Colors.status.info,
+  [ContainerStatus.CAMION]: Colors.status.warning,
+  [ContainerStatus.DEPOSE]: Colors.status.success,
+  [ContainerStatus.DEBALLE]: Colors.grey[500],
+};
 
-  const statusColor = Colors.containerStatus[container.status];
-  const priorityColor = Colors.priority[container.priority];
-  const borderLeftColor = priorityBorderColors[container.priority];
+export default function ContainerCard({
+  container,
+  roomName,
+}: ContainerCardProps) {
+  const router = useRouter();
+  const itemCount = (container.items ?? []).length;
+  const photoCount = (container.photos ?? []).length;
 
   return (
-    <TMBCard
+    <Pressable
       onPress={() => router.push(`/container/${container.id}`)}
-      style={{...styles.card, borderLeftColor, borderLeftWidth: 4}}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Ionicons
-            name={typeIcons[container.type]}
-            size={22}
-            color={Colors.primary}
-            style={styles.typeIcon}
+      <View
+        style={[
+          styles.priorityBar,
+          { backgroundColor: priorityAccent[container.priority] },
+        ]}
+      />
+
+      <View style={styles.body}>
+        <View style={styles.topRow}>
+          <Icon
+            name={typeIcons[container.type] || "shippingbox.fill"}
+            size={18}
+            colors={[Colors.text.primary]}
           />
           <Text style={styles.name} numberOfLines={1}>
             {container.name}
           </Text>
+          {container.isScannedOnArrival && (
+            <Icon
+              name="checkmark.circle.fill"
+              size={16}
+              colors={[Colors.status.success]}
+            />
+          )}
         </View>
-        {container.isScannedOnArrival && (
-          <Ionicons name="checkmark-circle" size={20} color={Colors.status.success} />
-        )}
-      </View>
 
-      <View style={styles.badges}>
-        <TMBBadge
-          label={statusLabels[container.status]}
-          color={statusColor.bg}
-          textColor={statusColor.text}
-        />
-        <TMBBadge
-          label={priorityLabels[container.priority]}
-          color={priorityColor.bg}
-          textColor={priorityColor.text}
-        />
-      </View>
-
-      <View style={styles.footer}>
-        {roomName && (
-          <View style={styles.footerItem}>
-            <Ionicons name="location-outline" size={14} color={Colors.text.secondary} />
-            <Text style={styles.footerText}>{roomName}</Text>
-          </View>
-        )}
-        <View style={styles.footerItem}>
-          <Ionicons name="layers-outline" size={14} color={Colors.text.secondary} />
-          <Text style={styles.footerText}>
-            {container.items.length} objet{container.items.length !== 1 ? 's' : ''}
+        <View style={styles.bottomRow}>
+          <Text style={styles.meta}>
+            {[
+              roomName,
+              `${itemCount} objet${itemCount !== 1 ? "s" : ""}`,
+              photoCount > 0 ? `${photoCount} photo${photoCount !== 1 ? "s" : ""}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </Text>
+          <Text
+            style={[
+              styles.status,
+              { color: statusTextColor[container.status] },
+            ]}
+          >
+            {statusLabels[container.status]}
           </Text>
         </View>
       </View>
-    </TMBCard>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 12,
+    flexDirection: "row",
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderCurve: "continuous",
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    overflow: "hidden",
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+  cardPressed: {
+    opacity: 0.75,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  priorityBar: {
+    width: 4,
+  },
+  body: {
     flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 6,
   },
-  typeIcon: {
-    marginRight: 10,
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   name: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.text.primary,
     flex: 1,
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.text.primary,
   },
-  badges: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
+  bottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  footer: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  footerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  footerText: {
+  meta: {
     fontSize: 13,
     color: Colors.text.secondary,
+  },
+  status: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

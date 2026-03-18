@@ -1,11 +1,19 @@
-import React from 'react';
-import { View, Text, TextInput, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/colors';
+import { Colors } from "@/constants/colors";
+import { Ionicons } from "@expo/vector-icons";
+import { SymbolView } from "expo-symbols";
+import React from "react";
+import {
+    StyleSheet,
+    Text,
+    TextInput,
+    TextInputProps,
+    View,
+    ViewStyle,
+} from "react-native";
 
 interface TMBInputProps extends TextInputProps {
   label?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: any;
   error?: string;
   containerStyle?: ViewStyle;
 }
@@ -18,23 +26,28 @@ export default function TMBInput({
   style,
   ...rest
 }: TMBInputProps) {
+  const isSFSymbol = typeof icon === "string" && icon.includes(".");
+
   return (
     <View style={[styles.wrapper, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <View
-        style={[
-          styles.inputContainer,
-          error ? styles.inputError : null,
-        ]}
-      >
-        {icon && (
-          <Ionicons
-            name={icon}
-            size={18}
-            color={Colors.grey[400]}
-            style={styles.icon}
-          />
-        )}
+      <View style={[styles.inputContainer, error ? styles.inputError : null]}>
+        {icon &&
+          (isSFSymbol ? (
+            <SymbolView
+              name={icon as any}
+              size={18}
+              colors={[Colors.grey[400]]}
+              style={styles.icon}
+            />
+          ) : (
+            <Ionicons
+              name={icon}
+              size={18}
+              color={Colors.grey[400]}
+              style={styles.icon}
+            />
+          ))}
         <TextInput
           style={[styles.input, style]}
           placeholderTextColor={Colors.text.muted}
@@ -52,13 +65,13 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.text.primary,
     marginBottom: 6,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,

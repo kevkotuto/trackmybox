@@ -1,30 +1,34 @@
-import React from 'react';
+import { Colors } from "@/constants/colors";
+import { Ionicons } from "@expo/vector-icons";
+import { SymbolView } from "expo-symbols";
+import React from "react";
 import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  ViewStyle,
-  TextStyle,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/colors';
+    ActivityIndicator,
+    StyleSheet,
+    Text,
+    TextStyle,
+    TouchableOpacity,
+    ViewStyle,
+} from "react-native";
 
-type ButtonVariant = 'primary' | 'secondary' | 'danger';
-type ButtonSize = 'sm' | 'md' | 'lg';
+type ButtonVariant = "primary" | "secondary" | "danger";
+type ButtonSize = "sm" | "md" | "lg";
 
 interface TMBButtonProps {
   title: string;
   onPress: () => void;
   variant?: ButtonVariant;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: any;
   loading?: boolean;
   disabled?: boolean;
   size?: ButtonSize;
   style?: ViewStyle;
 }
 
-const sizeConfig: Record<ButtonSize, { paddingV: number; paddingH: number; fontSize: number; iconSize: number }> = {
+const sizeConfig: Record<
+  ButtonSize,
+  { paddingV: number; paddingH: number; fontSize: number; iconSize: number }
+> = {
   sm: { paddingV: 8, paddingH: 14, fontSize: 13, iconSize: 16 },
   md: { paddingV: 12, paddingH: 20, fontSize: 15, iconSize: 18 },
   lg: { paddingV: 16, paddingH: 28, fontSize: 17, iconSize: 22 },
@@ -33,15 +37,16 @@ const sizeConfig: Record<ButtonSize, { paddingV: number; paddingH: number; fontS
 export default function TMBButton({
   title,
   onPress,
-  variant = 'primary',
+  variant = "primary",
   icon,
   loading = false,
   disabled = false,
-  size = 'md',
+  size = "md",
   style,
 }: TMBButtonProps) {
   const config = sizeConfig[size];
   const isDisabled = disabled || loading;
+  const isSFSymbol = typeof icon === "string" && icon.includes(".");
 
   const containerStyle: ViewStyle = {
     paddingVertical: config.paddingV,
@@ -69,19 +74,31 @@ export default function TMBButton({
           style={styles.loader}
         />
       ) : icon ? (
-        <Ionicons
-          name={icon}
-          size={config.iconSize}
-          color={variantStyles[variant].text.color as string}
-          style={styles.icon}
-        />
+        isSFSymbol ? (
+          <SymbolView
+            name={icon as any}
+            size={config.iconSize}
+            colors={[variantStyles[variant].text.color as string]}
+            style={styles.icon}
+          />
+        ) : (
+          <Ionicons
+            name={icon}
+            size={config.iconSize}
+            color={variantStyles[variant].text.color as string}
+            style={styles.icon}
+          />
+        )
       ) : null}
       <Text style={[styles.label, textStyle]}>{title}</Text>
     </TouchableOpacity>
   );
 }
 
-const variantStyles: Record<ButtonVariant, { container: ViewStyle; text: TextStyle }> = {
+const variantStyles: Record<
+  ButtonVariant,
+  { container: ViewStyle; text: TextStyle }
+> = {
   primary: {
     container: {
       backgroundColor: Colors.primary,
@@ -92,7 +109,7 @@ const variantStyles: Record<ButtonVariant, { container: ViewStyle; text: TextSty
   },
   secondary: {
     container: {
-      backgroundColor: 'transparent',
+      backgroundColor: "transparent",
       borderWidth: 1.5,
       borderColor: Colors.primary,
     },
@@ -112,13 +129,13 @@ const variantStyles: Record<ButtonVariant, { container: ViewStyle; text: TextSty
 
 const styles = StyleSheet.create({
   base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 10,
   },
   label: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   icon: {
     marginRight: 8,

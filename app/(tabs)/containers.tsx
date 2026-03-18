@@ -1,157 +1,117 @@
-import React, { useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/colors';
-import { Container, ContainerStatus, ContainerType, ContainerPriority } from '@/types';
-import TMBInput from '@/components/ui/TMBInput';
-import TMBBadge from '@/components/ui/TMBBadge';
-import ContainerCard from '@/components/containers/ContainerCard';
-import EmptyState from '@/components/ui/EmptyState';
+import ContainerCard from "@/components/containers/ContainerCard";
+import EmptyState from "@/components/ui/EmptyState";
+import { Colors } from "@/constants/colors";
+import { useContainerStore } from "@/stores/useContainerStore";
+import { ContainerStatus } from "@/types";
+import { Stack, useRouter } from "expo-router";
+import { SymbolView as Icon } from "expo-symbols";
+import React, { useEffect, useMemo, useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 const statusFilters = [
-  { key: 'all', label: 'Tous' },
-  { key: ContainerStatus.EMBALLE, label: 'Emball\u00e9' },
-  { key: ContainerStatus.CAMION, label: 'Camion' },
-  { key: ContainerStatus.DEPOSE, label: 'D\u00e9pos\u00e9' },
-  { key: ContainerStatus.DEBALLE, label: 'D\u00e9ball\u00e9' },
-];
-
-// Mock data
-const mockContainers: Container[] = [
-  {
-    id: '1',
-    name: 'Cuisine - Assiettes',
-    type: ContainerType.CARTON,
-    status: ContainerStatus.EMBALLE,
-    priority: ContainerPriority.URGENT,
-    isScannedOnArrival: false,
-    qrCodeData: 'tmb-001',
-    items: [{ id: '1', name: 'Assiettes', containerId: '1', createdAt: '' }],
-    photos: [],
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    id: '2',
-    name: 'Salon - Livres',
-    type: ContainerType.CARTON,
-    status: ContainerStatus.CAMION,
-    priority: ContainerPriority.SEMAINE,
-    isScannedOnArrival: true,
-    qrCodeData: 'tmb-002',
-    items: [
-      { id: '2', name: 'Livres', containerId: '2', createdAt: '' },
-      { id: '3', name: 'Albums photo', containerId: '2', createdAt: '' },
-    ],
-    photos: [],
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    id: '3',
-    name: 'Chambre - V\u00eatements',
-    type: ContainerType.VALISE,
-    status: ContainerStatus.DEPOSE,
-    priority: ContainerPriority.PAS_PRESSE,
-    isScannedOnArrival: true,
-    qrCodeData: 'tmb-003',
-    items: [],
-    photos: [],
-    createdAt: '',
-    updatedAt: '',
-  },
+  { key: "all", label: "Tous" },
+  { key: ContainerStatus.EMBALLE, label: "Emballé" },
+  { key: ContainerStatus.CAMION, label: "Camion" },
+  { key: ContainerStatus.DEPOSE, label: "Déposé" },
+  { key: ContainerStatus.DEBALLE, label: "Déballé" },
 ];
 
 export default function ContainersScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState("all");
+
+  const { containers, fetchContainers } = useContainerStore();
+
+  useEffect(() => {
+    fetchContainers();
+  }, []);
 
   const filtered = useMemo(() => {
-    let result = mockContainers;
-    if (activeFilter !== 'all') {
-      result = result.filter(c => c.status === activeFilter);
+    let result = containers;
+    if (activeFilter !== "all") {
+      result = result.filter((c) => c.status === activeFilter);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter(c => c.name.toLowerCase().includes(q));
+      result = result.filter((c) => c.name.toLowerCase().includes(q));
     }
     return result;
-  }, [search, activeFilter]);
+  }, [containers, search, activeFilter]);
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Conteneurs</Text>
-      </View>
-
-      <View style={styles.searchRow}>
-        <TMBInput
-          placeholder="Rechercher..."
-          icon="search-outline"
-          value={search}
-          onChangeText={setSearch}
-          containerStyle={styles.searchInput}
-        />
-      </View>
-
-      {/* Filter chips */}
-      <FlatList
-        horizontal
-        data={statusFilters}
-        keyExtractor={item => item.key}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filtersContainer}
-        renderItem={({ item }) => {
-          const active = activeFilter === item.key;
-          return (
-            <TouchableOpacity
-              style={[styles.chip, active && styles.chipActive]}
-              onPress={() => setActiveFilter(item.key)}
+    <View style={styles.screen}>
+      <Stack.Screen
+        options={{
+          title: "Cartons",
+          headerLargeTitle: true,
+          headerTransparent: true,
+          headerBlurEffect: "regular",
+          headerSearchBarOptions: {
+            placeholder: "Rechercher un carton...",
+            onChangeText: (e) => setSearch(e.nativeEvent.text),
+            hideWhenScrolling: false,
+          },
+          headerRight: () => (
+            <Pressable
+              onPress={() => router.push("/container/new")}
+              style={({ pressed }) => [
+                styles.headerButton,
+                pressed && { opacity: 0.5 },
+              ]}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
+              <Icon
+                name="plus"
+                size={24}
+                colors={[Colors.primary]}
+                weight="medium"
+              />
+            </Pressable>
+          ),
         }}
       />
 
-      {/* List */}
       <FlatList
         data={filtered}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <FlatList
+            horizontal
+            data={statusFilters}
+            keyExtractor={(item) => item.key}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersContainer}
+            renderItem={({ item }) => {
+              const active = activeFilter === item.key;
+              return (
+                <Pressable
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => setActiveFilter(item.key)}
+                >
+                  <Text
+                    style={[styles.chipText, active && styles.chipTextActive]}
+                  >
+                    {item.label}
+                  </Text>
+                </Pressable>
+              );
+            }}
+          />
+        }
         renderItem={({ item }) => <ContainerCard container={item} />}
         ListEmptyComponent={
           <EmptyState
             icon="cube-outline"
-            title="Aucun conteneur"
-            description="Ajoutez votre premier conteneur pour commencer."
-            actionTitle="Ajouter"
-            onAction={() => router.push('/container/new')}
+            title="Aucun carton"
+            description="Aucun carton trouvé pour cette recherche ou ce filtre."
+            actionTitle="Ajouter un carton"
+            onAction={() => router.push("/container/new")}
           />
         }
       />
-
-      {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: 24 }]}
-        onPress={() => router.push('/container/new')}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={28} color={Colors.text.inverse} />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -161,59 +121,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: Colors.text.primary,
-  },
-  searchRow: {
-    paddingHorizontal: 16,
-  },
-  searchInput: {
-    marginBottom: 8,
+  headerButton: {
+    padding: 8,
+    marginRight: -8,
   },
   filtersContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 16,
+    paddingTop: 8,
     gap: 8,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: Colors.grey[100],
+    backgroundColor: Colors.surface,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: Colors.borderLight,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
   },
   chipActive: {
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
   chipText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: "600",
     color: Colors.text.secondary,
   },
   chipTextActive: {
-    color: Colors.text.inverse,
+    color: Colors.surface,
   },
   list: {
     paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingBottom: 100, // To comfortably scroll above tabs and scan FAB
   },
 });

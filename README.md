@@ -1,50 +1,123 @@
-# Welcome to your Expo app 👋
+# Track My Box
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A mobile app to organize, label and track your moving boxes — built with Expo (React Native) and a NestJS backend.
 
-## Get started
+---
 
-1. Install dependencies
+## Features
 
-   ```bash
-   npm install
-   ```
+- **Boxes management** — create, edit, delete boxes with type, priority and status
+- **Items** — add items inside each box with photos
+- **QR code labels** — print custom labels per box; scan them to instantly open the box detail
+- **Custom QR styles** — choose module shape (square, rounded, dots, diamond, star), eye/corner style, frame shape and colors
+- **Rooms** — organize boxes by origin / destination room
+- **Moves** — track moves and associate boxes
+- **Batch print** — select multiple boxes and print all labels at once (AirPrint / BLE thermal printer)
+- **Label formats** — configure paper size, grid, margins and save custom formats
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## Stack
 
-In the output, you'll find options to open the app in a
+| Layer | Tech |
+|---|---|
+| Mobile | Expo SDK 52 · Expo Router · React Native |
+| State | Zustand |
+| QR | react-native-qrcode-styled · react-native-svg |
+| Print | expo-print · react-native-view-shot |
+| Scanner | expo-camera |
+| Backend | NestJS · TypeScript |
+| Storage | AsyncStorage (local) |
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+---
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Getting started
 
-## Get a fresh project
+### Prerequisites
 
-When you're ready, run:
+- Node.js ≥ 18
+- iOS Simulator or a physical device with Expo Go
+
+### Frontend (mobile)
 
 ```bash
-npm run reset-project
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Scan the QR code with Expo Go, or press `i` for the iOS simulator.
 
-## Learn more
+### Backend
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+cd backend
+npm install
+npm run start:dev
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+The API listens on `http://localhost:3000` by default. To point the frontend to a local backend, update `services/api.ts`:
 
-## Join the community
+```ts
+const API_BASE = 'http://localhost:3000';
+```
 
-Join our community of developers creating universal apps.
+---
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Project structure
+
+```
+app/
+  (tabs)/           # Bottom tab screens
+    index.tsx       # Home
+    containers.tsx  # Box list
+    scan.tsx        # QR scanner
+    moves.tsx       # Moves
+    settings.tsx    # Settings
+  container/
+    [id].tsx        # Box detail
+    new.tsx         # New box form
+  move/new.tsx      # New move form
+  rooms/index.tsx   # Rooms management
+  settings/qr.tsx   # QR code customization
+  scanner.tsx       # Full-screen scanner
+
+components/
+  containers/       # Box-related components
+  print/            # Label editor, print sheets
+  ui/               # Design system (TMBButton, TMBInput, …)
+
+services/
+  api.ts            # REST API client
+  labelFormats.ts   # Label format CRUD + presets
+  qrShapes.ts       # QR style → react-native-qrcode-styled props
+  systemPrint.ts    # HTML label builder for system print
+
+stores/             # Zustand stores
+hooks/
+  useBatchPrint.ts  # Batch print orchestration
+
+backend/            # NestJS API
+```
+
+---
+
+## QR code customization
+
+Navigate to **Settings → Personnaliser le QR Code** to access the dedicated screen.
+
+| Option | Choices |
+|---|---|
+| Module (pixel) shape | Square · Rounded · Dots · Diamond · Star |
+| Eye (corner) shape | Square · Rounded · Dots · Classic · Classic rounded |
+| Frame shape | Square · Rounded · Circle |
+| Foreground color | 6 presets |
+| Background color | 5 presets |
+| Center icon | on / off |
+
+All settings are persisted via AsyncStorage and reflected live on every QR render and print job.
+
+---
+
+## License
+
+MIT

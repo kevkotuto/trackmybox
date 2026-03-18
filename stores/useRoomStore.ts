@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Room } from '../types';
-import { roomDb } from '../services/database';
+import { roomApi, CreateRoomData, UpdateRoomData } from '../services/api';
 
 interface RoomState {
   rooms: Room[];
@@ -8,8 +8,8 @@ interface RoomState {
   error: string | null;
 
   fetchRooms: (moveId?: string) => Promise<void>;
-  addRoom: (data: Omit<Room, 'id'>) => Promise<Room>;
-  updateRoom: (id: string, data: Partial<Omit<Room, 'id'>>) => Promise<void>;
+  addRoom: (data: CreateRoomData) => Promise<Room>;
+  updateRoom: (id: string, data: UpdateRoomData) => Promise<void>;
   deleteRoom: (id: string) => Promise<void>;
   clearError: () => void;
 }
@@ -22,7 +22,7 @@ export const useRoomStore = create<RoomState>((set) => ({
   fetchRooms: async (moveId?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const rooms = await roomDb.getAll(moveId);
+      const rooms = await roomApi.getAll(moveId);
       set({ rooms, isLoading: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch rooms';
@@ -33,7 +33,7 @@ export const useRoomStore = create<RoomState>((set) => ({
   addRoom: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const room = await roomDb.create(data);
+      const room = await roomApi.create(data);
       set((state) => ({
         rooms: [...state.rooms, room].sort((a, b) => a.name.localeCompare(b.name)),
         isLoading: false,
@@ -49,15 +49,11 @@ export const useRoomStore = create<RoomState>((set) => ({
   updateRoom: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await roomDb.update(id, data);
-      if (updated) {
-        set((state) => ({
-          rooms: state.rooms.map((r) => (r.id === id ? updated : r)).sort((a, b) => a.name.localeCompare(b.name)),
-          isLoading: false,
-        }));
-      } else {
-        set({ isLoading: false });
-      }
+      const updated = await roomApi.update(id, data);
+      set((state) => ({
+        rooms: state.rooms.map((r) => (r.id === id ? updated : r)).sort((a, b) => a.name.localeCompare(b.name)),
+        isLoading: false,
+      }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update room';
       set({ error: message, isLoading: false });
@@ -68,7 +64,7 @@ export const useRoomStore = create<RoomState>((set) => ({
   deleteRoom: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await roomDb.delete(id);
+      await roomApi.delete(id);
       set((state) => ({
         rooms: state.rooms.filter((r) => r.id !== id),
         isLoading: false,

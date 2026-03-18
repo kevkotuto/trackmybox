@@ -1,191 +1,175 @@
-import React from 'react';
+import ContainerCard from "@/components/containers/ContainerCard";
+import EmptyState from "@/components/ui/EmptyState";
+import { Colors } from "@/constants/colors";
+import { useContainerStore } from "@/stores/useContainerStore";
+import { useMoveStore } from "@/stores/useMoveStore";
+import { Stack, useRouter } from "expo-router";
+import { SymbolView as Icon } from "expo-symbols";
+import React, { useEffect } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/colors';
-import { MoveStats, Container, ContainerStatus } from '@/types';
-import TMBCard from '@/components/ui/TMBCard';
-import ContainerCard from '@/components/containers/ContainerCard';
-
-// Mock data for demonstration
-const mockStats: MoveStats = {
-  total: 24,
-  scanned: 18,
-  missing: 6,
-  percentage: 75,
-};
-
-const mockContainers: Container[] = [
-  {
-    id: '1',
-    name: 'Cuisine - Assiettes',
-    type: 'carton' as any,
-    status: ContainerStatus.EMBALLE,
-    priority: 'urgent' as any,
-    isScannedOnArrival: false,
-    qrCodeData: 'tmb-001',
-    items: [{ id: '1', name: 'Assiettes', containerId: '1', createdAt: '' }],
-    photos: [],
-    createdAt: '',
-    updatedAt: '',
-  },
-  {
-    id: '2',
-    name: 'Salon - Livres',
-    type: 'carton' as any,
-    status: ContainerStatus.CAMION,
-    priority: 'semaine' as any,
-    isScannedOnArrival: true,
-    qrCodeData: 'tmb-002',
-    items: [
-      { id: '2', name: 'Livres', containerId: '2', createdAt: '' },
-      { id: '3', name: 'Albums', containerId: '2', createdAt: '' },
-    ],
-    photos: [],
-    createdAt: '',
-    updatedAt: '',
-  },
-];
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 
 export default function HomeScreen() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const missingContainers = mockContainers.filter(c => !c.isScannedOnArrival);
+  const {
+    containers,
+    fetchContainers,
+    isLoading: loadingContainers,
+  } = useContainerStore();
+  const { fetchMoves, currentMove } = useMoveStore();
+
+  useEffect(() => {
+    fetchContainers();
+    fetchMoves();
+  }, []);
+
+  const move = currentMove();
+  const total = containers.length;
+  const scanned = containers.filter((c) => c.isScannedOnArrival).length;
+  const missing = total - scanned;
+  const pct = total > 0 ? Math.round((scanned / total) * 100) : 0;
+
+  const recent = containers.slice(0, 5);
 
   return (
-    <View style={styles.screen}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerTitle}>Track My Box</Text>
-        <Text style={styles.headerSubtitle}>Tableau de bord</Text>
-      </View>
-
+    <>
+      <Stack.Screen
+        options={{
+          title: "Track My Box",
+          headerLargeTitle: true,
+          headerTransparent: true,
+          headerBlurEffect: "regular",
+        }}
+      />
       <ScrollView
-        style={styles.content}
+        style={styles.screen}
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.contentInner}
-        showsVerticalScrollIndicator={false}
       >
-        {/* Stats Card */}
-        <TMBCard style={styles.statsCard}>
-          <Text style={styles.statsTitle}>D\u00e9m\u00e9nagement en cours</Text>
-          <View style={styles.statsRow}>
-            <StatItem label="Total" value={mockStats.total} color={Colors.primary} />
-            <StatItem label="Scann\u00e9s" value={mockStats.scanned} color={Colors.status.success} />
-            <StatItem label="Manquants" value={mockStats.missing} color={Colors.status.error} />
+        {move && (
+          <View style={styles.activeMoveBanner}>
+            <Text style={styles.activeMoveText}>
+              📦 Déménagement :{" "}
+              <Text style={{ fontWeight: "700" }}>{move.name}</Text>
+            </Text>
           </View>
-          {/* Progress bar */}
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${mockStats.percentage}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.progressText}>{mockStats.percentage}%</Text>
-          </View>
-        </TMBCard>
+        )}
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionTitle}>Actions rapides</Text>
-        <View style={styles.quickActions}>
-          <QuickAction
-            icon="add-circle-outline"
-            label="Nouveau Conteneur"
-            onPress={() => router.push('/container/new')}
+        {loadingContainers && total === 0 ? (
+          <ActivityIndicator color={Colors.primary} style={{ marginTop: 32 }} />
+        ) : total === 0 ? (
+          <EmptyState
+            icon="cube-outline"
+            title="Aucun carton pour l'instant"
+            description="Ajoutez votre premier carton pour commencer à tout suivre."
+            actionTitle="Ajouter un carton"
+            onAction={() => router.push("/container/new")}
           />
-          <QuickAction
-            icon="scan-outline"
-            label="Scanner"
-            onPress={() => router.push('/(tabs)/scan')}
-          />
-          <QuickAction
-            icon="print-outline"
-            label="Imprimer"
-            onPress={() => {}}
-          />
-        </View>
-
-        {/* Recent Containers */}
-        <Text style={styles.sectionTitle}>Conteneurs r\u00e9cents</Text>
-        {mockContainers.map(container => (
-          <ContainerCard key={container.id} container={container} />
-        ))}
-
-        {/* Missing Containers Alert */}
-        {missingContainers.length > 0 && (
+        ) : (
           <>
-            <Text style={styles.sectionTitle}>Non scann\u00e9s</Text>
-            <TMBCard style={styles.missingCard}>
-              <View style={styles.missingHeader}>
-                <Ionicons
-                  name="alert-circle-outline"
-                  size={20}
-                  color={Colors.status.error}
-                />
-                <Text style={styles.missingTitle}>
-                  {missingContainers.length} conteneur
-                  {missingContainers.length > 1 ? 's' : ''} non scann\u00e9
-                  {missingContainers.length > 1 ? 's' : ''}
+            {/* Progression Premium iOS Style */}
+            <View style={styles.progressSection}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>
+                  {scanned} sur {total} scannés
                 </Text>
+                <Text style={styles.progressPct}>{pct}%</Text>
               </View>
-              {missingContainers.map(c => (
-                <TouchableOpacity
-                  key={c.id}
-                  style={styles.missingRow}
-                  onPress={() => router.push(`/container/${c.id}`)}
-                >
-                  <Ionicons name="cube-outline" size={16} color={Colors.status.error} />
-                  <Text style={styles.missingName}>{c.name}</Text>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.grey[400]} />
-                </TouchableOpacity>
-              ))}
-            </TMBCard>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${pct}%` }]} />
+              </View>
+              {missing > 0 && (
+                <View style={styles.missingHintContainer}>
+                  <Icon
+                    name="exclamationmark.triangle.fill"
+                    size={14}
+                    colors={[Colors.status.error]}
+                    weight="medium"
+                  />
+                  <Text style={styles.missingHint}>
+                    {missing} carton{missing > 1 ? "s" : ""} manquant
+                    {missing > 1 ? "s" : ""} à l'appel
+                  </Text>
+                </View>
+              )}
+            </View>
           </>
         )}
 
-        <View style={{ height: 30 }} />
+        {/* Actions rapides Premium */}
+        <View style={styles.actionsGrid}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionCard,
+              pressed && styles.actionCardPressed,
+            ]}
+            onPress={() => router.push("/container/new")}
+          >
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: Colors.navy.ghost },
+              ]}
+            >
+              <Icon
+                name="plus"
+                size={20}
+                colors={[Colors.primary]}
+                weight="bold"
+              />
+            </View>
+            <Text style={styles.actionText}>Nouveau carton</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.actionCard,
+              pressed && styles.actionCardPressed,
+            ]}
+            onPress={() => router.push("/scanner")}
+          >
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: Colors.navy.ghost },
+              ]}
+            >
+              <Icon
+                name="qrcode.viewfinder"
+                size={20}
+                colors={[Colors.primary]}
+                weight="medium"
+              />
+            </View>
+            <Text style={styles.actionText}>Scanner</Text>
+          </Pressable>
+        </View>
+
+        {/* Cartons récents */}
+        {recent.length > 0 && (
+          <View style={styles.recentSection}>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>Cartons récents</Text>
+              <Pressable onPress={() => router.push("/(tabs)/containers")}>
+                <Text style={styles.sectionLink}>Voir tout</Text>
+              </Pressable>
+            </View>
+            <View style={styles.listContainer}>
+              {recent.map((container) => (
+                <ContainerCard key={container.id} container={container} />
+              ))}
+            </View>
+          </View>
+        )}
       </ScrollView>
-    </View>
-  );
-}
-
-function StatItem({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <View style={styles.statItem}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function QuickAction({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.quickAction} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.quickActionIcon}>
-        <Ionicons name={icon} size={24} color={Colors.primary} />
-      </View>
-      <Text style={styles.quickActionLabel} numberOfLines={2}>
-        {label}
-      </Text>
-    </TouchableOpacity>
+    </>
   );
 }
 
@@ -194,138 +178,127 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: Colors.text.inverse,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: Colors.grey[300],
-    marginTop: 2,
-  },
-  content: {
-    flex: 1,
-  },
   contentInner: {
     padding: 16,
+    paddingBottom: 40,
+    gap: 24,
   },
-  statsCard: {
-    marginBottom: 20,
+  activeMoveBanner: {
+    backgroundColor: Colors.surface,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderCurve: "continuous",
+    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
-  statsTitle: {
+  activeMoveText: {
     fontSize: 15,
-    fontWeight: '700',
     color: Colors.text.primary,
-    marginBottom: 14,
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 14,
+  progressSection: {
+    backgroundColor: Colors.surface,
+    padding: 20,
+    borderRadius: 16,
+    borderCurve: "continuous",
+    boxShadow: "0 4px 14px rgba(0, 0, 0, 0.05)",
   },
-  statItem: {
-    alignItems: 'center',
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginBottom: 12,
   },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '800',
+  progressLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.text.primary,
   },
-  statLabel: {
-    fontSize: 12,
-    color: Colors.text.secondary,
-    marginTop: 2,
+  progressPct: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: Colors.status.success,
+    fontVariant: ["tabular-nums"],
   },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  progressBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: Colors.grey[200],
-    borderRadius: 4,
-    overflow: 'hidden',
+  progressTrack: {
+    height: 10,
+    backgroundColor: Colors.grey[100],
+    borderRadius: 5,
+    overflow: "hidden",
   },
   progressFill: {
-    height: '100%',
+    height: "100%",
     backgroundColor: Colors.status.success,
-    borderRadius: 4,
+    borderRadius: 5,
   },
-  progressText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.text.secondary,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.text.primary,
-    marginBottom: 12,
-    marginTop: 4,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  quickAction: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 14,
-    alignItems: 'center',
-  },
-  quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.navy.ghost,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  quickActionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.text.primary,
-    textAlign: 'center',
-  },
-  missingCard: {
+  missingHintContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 12,
     backgroundColor: Colors.status.errorLight,
-    borderColor: '#FECACA',
-    marginBottom: 12,
+    padding: 8,
+    borderRadius: 8,
+    borderCurve: "continuous",
   },
-  missingHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  missingTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+  missingHint: {
+    fontSize: 13,
+    fontWeight: "500",
     color: Colors.status.error,
   },
-  missingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#FECACA',
+  actionsGrid: {
+    flexDirection: "row",
+    gap: 12,
   },
-  missingName: {
+  actionCard: {
     flex: 1,
+    backgroundColor: Colors.surface,
+    padding: 16,
+    borderRadius: 16,
+    borderCurve: "continuous",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  actionCardPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.98 }],
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  actionText: {
     fontSize: 14,
+    fontWeight: "600",
     color: Colors.text.primary,
+  },
+  recentSection: {},
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: Colors.text.primary,
+  },
+  sectionLink: {
+    fontSize: 15,
+    color: Colors.primary,
+    fontWeight: "600",
+  },
+  listContainer: {
+    gap: 12,
   },
 });

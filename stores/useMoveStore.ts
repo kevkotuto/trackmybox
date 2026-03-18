@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Move, MoveStatus } from '../types';
-import { moveDb } from '../services/database';
+import { moveApi } from '../services/api';
 
 interface MoveState {
   moves: Move[];
@@ -28,10 +28,10 @@ export const useMoveStore = create<MoveState>((set, get) => ({
   fetchMoves: async () => {
     set({ isLoading: true, error: null });
     try {
-      const moves = await moveDb.getAll();
+      const moves = await moveApi.getAll();
       set({ moves, isLoading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch moves';
+      const message = err instanceof Error ? err.message : 'Erreur lors du chargement';
       set({ error: message, isLoading: false });
     }
   },
@@ -39,14 +39,14 @@ export const useMoveStore = create<MoveState>((set, get) => ({
   addMove: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const move = await moveDb.create(data);
+      const move = await moveApi.create(data);
       set((state) => ({
         moves: [move, ...state.moves],
         isLoading: false,
       }));
       return move;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to add move';
+      const message = err instanceof Error ? err.message : 'Erreur lors de la création';
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -55,18 +55,14 @@ export const useMoveStore = create<MoveState>((set, get) => ({
   updateMove: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await moveDb.update(id, data);
-      if (updated) {
-        set((state) => ({
-          moves: state.moves.map((m) => (m.id === id ? updated : m)),
-          selectedMove: state.selectedMove?.id === id ? updated : state.selectedMove,
-          isLoading: false,
-        }));
-      } else {
-        set({ isLoading: false });
-      }
+      const updated = await moveApi.update(id, data);
+      set((state) => ({
+        moves: state.moves.map((m) => (m.id === id ? updated : m)),
+        selectedMove: state.selectedMove?.id === id ? updated : state.selectedMove,
+        isLoading: false,
+      }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update move';
+      const message = err instanceof Error ? err.message : 'Erreur lors de la mise à jour';
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -75,14 +71,14 @@ export const useMoveStore = create<MoveState>((set, get) => ({
   deleteMove: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      await moveDb.delete(id);
+      await moveApi.delete(id);
       set((state) => ({
         moves: state.moves.filter((m) => m.id !== id),
         selectedMove: state.selectedMove?.id === id ? null : state.selectedMove,
         isLoading: false,
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete move';
+      const message = err instanceof Error ? err.message : 'Erreur lors de la suppression';
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -91,18 +87,14 @@ export const useMoveStore = create<MoveState>((set, get) => ({
   startMove: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      const started = await moveDb.start(id);
-      if (started) {
-        set((state) => ({
-          moves: state.moves.map((m) => (m.id === id ? started : m)),
-          selectedMove: state.selectedMove?.id === id ? started : state.selectedMove,
-          isLoading: false,
-        }));
-      } else {
-        set({ isLoading: false });
-      }
+      const started = await moveApi.start(id);
+      set((state) => ({
+        moves: state.moves.map((m) => (m.id === id ? started : m)),
+        selectedMove: state.selectedMove?.id === id ? started : state.selectedMove,
+        isLoading: false,
+      }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to start move';
+      const message = err instanceof Error ? err.message : 'Erreur lors du démarrage';
       set({ error: message, isLoading: false });
       throw err;
     }
@@ -111,18 +103,14 @@ export const useMoveStore = create<MoveState>((set, get) => ({
   completeMove: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      const completed = await moveDb.complete(id);
-      if (completed) {
-        set((state) => ({
-          moves: state.moves.map((m) => (m.id === id ? completed : m)),
-          selectedMove: state.selectedMove?.id === id ? completed : state.selectedMove,
-          isLoading: false,
-        }));
-      } else {
-        set({ isLoading: false });
-      }
+      const completed = await moveApi.complete(id);
+      set((state) => ({
+        moves: state.moves.map((m) => (m.id === id ? completed : m)),
+        selectedMove: state.selectedMove?.id === id ? completed : state.selectedMove,
+        isLoading: false,
+      }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to complete move';
+      const message = err instanceof Error ? err.message : 'Erreur lors de la finalisation';
       set({ error: message, isLoading: false });
       throw err;
     }

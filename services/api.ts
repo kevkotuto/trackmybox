@@ -11,7 +11,7 @@ import {
   ContainerPriority,
 } from '../types';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://trackmybox.generale-ci.com/api';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://trackmybox.generale-ci.com/api/v1';
 
 const client: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -199,6 +199,20 @@ export const photoApi = {
 
   async create(photoData: CreatePhotoData): Promise<Photo> {
     const { data } = await client.post<Photo>('/photos', photoData);
+    return data;
+  },
+
+  async upload(containerId: string, localUri: string, caption?: string): Promise<Photo> {
+    const filename = localUri.split('/').pop() || 'photo.jpg';
+    const ext = filename.split('.').pop()?.toLowerCase() ?? 'jpg';
+    const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+    const formData = new FormData();
+    formData.append('file', { uri: localUri, name: filename, type: mimeType } as any);
+    formData.append('containerId', containerId);
+    if (caption) formData.append('caption', caption);
+    const { data } = await client.post<Photo>('/photos', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return data;
   },
 

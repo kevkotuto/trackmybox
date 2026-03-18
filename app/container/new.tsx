@@ -1,99 +1,125 @@
-import React, { useState } from 'react';
+import TMBButton from "@/components/ui/TMBButton";
+import TMBInput from "@/components/ui/TMBInput";
+import { Colors } from "@/constants/colors";
+import { useContainerStore } from "@/stores/useContainerStore";
+import { useRoomStore } from "@/stores/useRoomStore";
+import { ContainerPriority, ContainerStatus, ContainerType } from "@/types";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Switch,
-  Alert,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/colors';
-import { ContainerType, ContainerPriority } from '@/types';
-import TMBInput from '@/components/ui/TMBInput';
-import TMBButton from '@/components/ui/TMBButton';
-import { v4 as uuidv4 } from 'uuid';
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
 
-const typeOptions: { type: ContainerType; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { type: ContainerType.CARTON, label: 'Carton', icon: 'cube-outline' },
-  { type: ContainerType.SAC, label: 'Sac', icon: 'bag-outline' },
-  { type: ContainerType.VALISE, label: 'Valise', icon: 'briefcase-outline' },
-  { type: ContainerType.BOITE, label: 'Bo\u00eete', icon: 'archive-outline' },
-  { type: ContainerType.DOSSIER, label: 'Dossier', icon: 'folder-outline' },
-  { type: ContainerType.SACHET, label: 'Sachet', icon: 'pricetag-outline' },
+const typeOptions: {
+  type: ContainerType;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { type: ContainerType.CARTON, label: "Carton", icon: "cube-outline" },
+  { type: ContainerType.SAC, label: "Sac", icon: "bag-outline" },
+  { type: ContainerType.VALISE, label: "Valise", icon: "briefcase-outline" },
+  { type: ContainerType.BOITE, label: "Boîte", icon: "archive-outline" },
+  { type: ContainerType.DOSSIER, label: "Dossier", icon: "folder-outline" },
+  { type: ContainerType.SACHET, label: "Sachet", icon: "pricetag-outline" },
 ];
 
-const priorityOptions: { priority: ContainerPriority; label: string; color: string; textColor: string }[] = [
+const priorityOptions: {
+  priority: ContainerPriority;
+  label: string;
+  color: string;
+  textColor: string;
+}[] = [
   {
     priority: ContainerPriority.URGENT,
-    label: 'Urgent',
+    label: "Urgent",
     color: Colors.priority.urgent.bg,
     textColor: Colors.priority.urgent.text,
   },
   {
     priority: ContainerPriority.SEMAINE,
-    label: 'Semaine',
+    label: "Semaine",
     color: Colors.priority.semaine.bg,
     textColor: Colors.priority.semaine.text,
   },
   {
     priority: ContainerPriority.PAS_PRESSE,
-    label: 'Pas press\u00e9',
+    label: "Pas pressé",
     color: Colors.priority.pas_presse.bg,
     textColor: Colors.priority.pas_presse.text,
   },
 ];
 
-// Mock rooms
-const mockRooms = [
-  { id: '1', name: 'Cuisine' },
-  { id: '2', name: 'Salon' },
-  { id: '3', name: 'Chambre' },
-  { id: '4', name: 'Salle de bain' },
-  { id: '5', name: 'Bureau' },
-  { id: '6', name: 'Garage' },
-];
-
 export default function NewContainerScreen() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [selectedType, setSelectedType] = useState<ContainerType>(ContainerType.CARTON);
-  const [selectedPriority, setSelectedPriority] = useState<ContainerPriority>(ContainerPriority.SEMAINE);
+  const { addContainer } = useContainerStore();
+  const { rooms, fetchRooms } = useRoomStore();
+  const [name, setName] = useState("");
+  const [selectedType, setSelectedType] = useState<ContainerType>(
+    ContainerType.CARTON,
+  );
+  const [selectedPriority, setSelectedPriority] = useState<ContainerPriority>(
+    ContainerPriority.SEMAINE,
+  );
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [showRoomPicker, setShowRoomPicker] = useState(false);
-  const [notes, setNotes] = useState('');
+  const [selectedDestRoom, setSelectedDestRoom] = useState<string | null>(null);
+  const [showDestRoomPicker, setShowDestRoomPicker] = useState(false);
+  const [notes, setNotes] = useState("");
   const [isThirdParty, setIsThirdParty] = useState(false);
-  const [ownerName, setOwnerName] = useState('');
-  const [returnDate, setReturnDate] = useState('');
+  const [ownerName, setOwnerName] = useState("");
+  const [returnDate, setReturnDate] = useState("");
 
-  const selectedRoomObj = mockRooms.find(r => r.id === selectedRoom);
+  useEffect(() => { fetchRooms(); }, []);
 
-  const handleCreate = () => {
+  const selectedRoomObj = rooms.find((r) => r.id === selectedRoom);
+  const selectedDestRoomObj = rooms.find((r) => r.id === selectedDestRoom);
+
+  const handleCreate = async () => {
     if (!name.trim()) {
-      Alert.alert('Erreur', 'Veuillez saisir un nom pour le conteneur.');
+      Alert.alert("Erreur", "Veuillez saisir un nom pour le carton.");
       return;
     }
 
-    const qrCodeData = uuidv4();
-
-    // In a real app, save to store/database here
-    Alert.alert('Conteneur cr\u00e9\u00e9', `QR: ${qrCodeData.slice(0, 8)}...`, [
-      { text: 'OK', onPress: () => router.back() },
-    ]);
+    try {
+      await addContainer({
+        name: name.trim(),
+        type: selectedType,
+        status: ContainerStatus.EMBALLE,
+        priority: selectedPriority,
+        roomId: selectedRoom ?? undefined,
+        destinationRoomId: selectedDestRoom ?? undefined,
+        notes: notes.trim() || undefined,
+        isThirdParty,
+        thirdPartyOwner:
+          isThirdParty && ownerName ? ownerName.trim() : undefined,
+        returnDate: isThirdParty && returnDate ? returnDate.trim() : undefined,
+        isScannedOnArrival: false,
+        qrCodeData: Math.random().toString(36).substring(7),
+      });
+      router.back();
+    } catch {
+      Alert.alert("Erreur", "Impossible de créer le carton.");
+    }
   };
 
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
+      contentInsetAdjustmentBehavior="automatic"
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
       {/* Name */}
       <TMBInput
-        label="Nom du conteneur"
+        label="Nom du carton"
         placeholder="Ex: Cuisine - Assiettes"
         icon="text-outline"
         value={name}
@@ -103,7 +129,7 @@ export default function NewContainerScreen() {
       {/* Type selector */}
       <Text style={styles.label}>Type</Text>
       <View style={styles.typeGrid}>
-        {typeOptions.map(opt => {
+        {typeOptions.map((opt) => {
           const active = selectedType === opt.type;
           return (
             <TouchableOpacity
@@ -116,7 +142,9 @@ export default function NewContainerScreen() {
                 size={24}
                 color={active ? Colors.primary : Colors.grey[400]}
               />
-              <Text style={[styles.typeLabel, active && styles.typeLabelActive]}>
+              <Text
+                style={[styles.typeLabel, active && styles.typeLabelActive]}
+              >
                 {opt.label}
               </Text>
             </TouchableOpacity>
@@ -125,9 +153,9 @@ export default function NewContainerScreen() {
       </View>
 
       {/* Priority selector */}
-      <Text style={styles.label}>Priorit\u00e9</Text>
+      <Text style={styles.label}>Priorité</Text>
       <View style={styles.priorityRow}>
-        {priorityOptions.map(opt => {
+        {priorityOptions.map((opt) => {
           const active = selectedPriority === opt.priority;
           return (
             <TouchableOpacity
@@ -152,53 +180,100 @@ export default function NewContainerScreen() {
         })}
       </View>
 
-      {/* Room picker */}
-      <Text style={styles.label}>Pi\u00e8ce</Text>
+      {/* Source room picker */}
+      <Text style={styles.label}>Pièce d'origine</Text>
       <TouchableOpacity
         style={styles.pickerBtn}
-        onPress={() => setShowRoomPicker(!showRoomPicker)}
+        onPress={() => { setShowRoomPicker(!showRoomPicker); setShowDestRoomPicker(false); }}
       >
         <Ionicons name="location-outline" size={18} color={Colors.grey[400]} />
         <Text style={[styles.pickerText, !selectedRoomObj && styles.pickerPlaceholder]}>
-          {selectedRoomObj?.name || 'S\u00e9lectionner une pi\u00e8ce'}
+          {selectedRoomObj?.name || "Sélectionner une pièce"}
         </Text>
         <Ionicons
-          name={showRoomPicker ? 'chevron-up' : 'chevron-down'}
+          name={showRoomPicker ? "chevron-up" : "chevron-down"}
           size={18}
           color={Colors.grey[400]}
         />
       </TouchableOpacity>
       {showRoomPicker && (
         <View style={styles.pickerDropdown}>
-          {mockRooms.map(room => (
-            <TouchableOpacity
-              key={room.id}
-              style={[
-                styles.pickerOption,
-                selectedRoom === room.id && styles.pickerOptionActive,
-              ]}
-              onPress={() => {
-                setSelectedRoom(room.id);
-                setShowRoomPicker(false);
-              }}
-            >
-              <Text
-                style={[
-                  styles.pickerOptionText,
-                  selectedRoom === room.id && styles.pickerOptionTextActive,
-                ]}
-              >
-                {room.name}
+          {rooms.length === 0 ? (
+            <View style={styles.pickerEmpty}>
+              <Text style={styles.pickerEmptyText}>
+                Aucune pièce — ajoutez-en dans Réglages → Pièces
               </Text>
-            </TouchableOpacity>
-          ))}
+            </View>
+          ) : (
+            rooms.map((room) => (
+              <TouchableOpacity
+                key={room.id}
+                style={[styles.pickerOption, selectedRoom === room.id && styles.pickerOptionActive]}
+                onPress={() => { setSelectedRoom(room.id); setShowRoomPicker(false); }}
+              >
+                <Ionicons
+                  name={(room.icon ?? "home-outline") as any}
+                  size={16}
+                  color={selectedRoom === room.id ? Colors.primary : Colors.grey[500]}
+                />
+                <Text style={[styles.pickerOptionText, selectedRoom === room.id && styles.pickerOptionTextActive]}>
+                  {room.name}
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      )}
+
+      {/* Destination room picker */}
+      <Text style={styles.label}>Pièce de destination</Text>
+      <TouchableOpacity
+        style={styles.pickerBtn}
+        onPress={() => { setShowDestRoomPicker(!showDestRoomPicker); setShowRoomPicker(false); }}
+      >
+        <Ionicons name="navigate-outline" size={18} color={Colors.grey[400]} />
+        <Text style={[styles.pickerText, !selectedDestRoomObj && styles.pickerPlaceholder]}>
+          {selectedDestRoomObj?.name || "Où va ce carton ?"}
+        </Text>
+        <Ionicons
+          name={showDestRoomPicker ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={Colors.grey[400]}
+        />
+      </TouchableOpacity>
+      {showDestRoomPicker && (
+        <View style={styles.pickerDropdown}>
+          {rooms.length === 0 ? (
+            <View style={styles.pickerEmpty}>
+              <Text style={styles.pickerEmptyText}>
+                Aucune pièce — ajoutez-en dans Réglages → Pièces
+              </Text>
+            </View>
+          ) : (
+            rooms.map((room) => (
+              <TouchableOpacity
+                key={room.id}
+                style={[styles.pickerOption, selectedDestRoom === room.id && styles.pickerOptionActive]}
+                onPress={() => { setSelectedDestRoom(room.id); setShowDestRoomPicker(false); }}
+              >
+                <Ionicons
+                  name={(room.icon ?? "home-outline") as any}
+                  size={16}
+                  color={selectedDestRoom === room.id ? Colors.primary : Colors.grey[500]}
+                />
+                <Text style={[styles.pickerOptionText, selectedDestRoom === room.id && styles.pickerOptionTextActive]}>
+                  {room.name}
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       )}
 
       {/* Notes */}
       <TMBInput
         label="Notes"
-        placeholder="Notes suppl\u00e9mentaires..."
+        placeholder="Notes supplémentaires..."
         icon="document-text-outline"
         value={notes}
         onChangeText={setNotes}
@@ -211,7 +286,7 @@ export default function NewContainerScreen() {
       <View style={styles.switchRow}>
         <View style={styles.switchInfo}>
           <Ionicons name="people-outline" size={20} color={Colors.primary} />
-          <Text style={styles.switchLabel}>Tiers d\u00e9positaire</Text>
+          <Text style={styles.switchLabel}>Je garde ça pour quelqu'un</Text>
         </View>
         <Switch
           value={isThirdParty}
@@ -224,7 +299,7 @@ export default function NewContainerScreen() {
       {isThirdParty && (
         <View style={styles.thirdPartyFields}>
           <TMBInput
-            label="Nom du propri\u00e9taire"
+            label="Nom du propriétaire"
             placeholder="Nom..."
             icon="person-outline"
             value={ownerName}
@@ -242,7 +317,7 @@ export default function NewContainerScreen() {
 
       {/* Create button */}
       <TMBButton
-        title="Cr\u00e9er le conteneur"
+        title="Créer le carton"
         onPress={handleCreate}
         icon="checkmark-circle-outline"
         size="lg"
@@ -264,25 +339,25 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.text.primary,
     marginBottom: 8,
   },
   typeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
     marginBottom: 20,
   },
   typeItem: {
-    width: '30%',
+    width: "30%",
     flexGrow: 1,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 10,
     paddingVertical: 14,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 6,
   },
   typeItemActive: {
@@ -292,14 +367,14 @@ const styles = StyleSheet.create({
   },
   typeLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.text.secondary,
   },
   typeLabelActive: {
     color: Colors.primary,
   },
   priorityRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginBottom: 20,
   },
@@ -307,17 +382,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: "transparent",
   },
   priorityLabel: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   pickerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -341,9 +416,21 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: 10,
     marginBottom: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
+  },
+  pickerEmpty: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  pickerEmptyText: {
+    fontSize: 13,
+    color: Colors.text.muted,
+    fontStyle: "italic",
   },
   pickerOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -358,16 +445,16 @@ const styles = StyleSheet.create({
   },
   pickerOptionTextActive: {
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   textarea: {
     minHeight: 80,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -377,13 +464,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   switchInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   switchLabel: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.text.primary,
   },
   thirdPartyFields: {

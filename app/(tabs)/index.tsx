@@ -8,12 +8,15 @@ import { SymbolView as Icon } from "expo-symbols";
 import React, { useEffect } from "react";
 import {
     ActivityIndicator,
+    Image,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
     View,
 } from "react-native";
+
+const logoImage = require("@/assets/images/logo.png");
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -42,8 +45,10 @@ export default function HomeScreen() {
     <>
       <Stack.Screen
         options={{
-          title: "Track My Box",
-          headerLargeTitle: true,
+          headerTitle: () => (
+            <Image source={logoImage} style={styles.headerLogo} resizeMode="contain" />
+          ),
+          headerLargeTitle: false,
           headerTransparent: true,
           headerBlurEffect: "regular",
         }}
@@ -66,7 +71,7 @@ export default function HomeScreen() {
           <ActivityIndicator color={Colors.primary} style={{ marginTop: 32 }} />
         ) : total === 0 ? (
           <EmptyState
-            icon="cube-outline"
+            imageSource={logoImage}
             title="Aucun carton pour l'instant"
             description="Ajoutez votre premier carton pour commencer à tout suivre."
             actionTitle="Ajouter un carton"
@@ -174,6 +179,10 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerLogo: {
+    width: 120,
+    height: 32,
+  },
   screen: {
     flex: 1,
     backgroundColor: Colors.background,

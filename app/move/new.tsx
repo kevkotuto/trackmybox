@@ -13,10 +13,17 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
-import { MoveStatus } from '@/types';
+import { MoveStatus, VehicleType, ContactPerson } from '@/types';
 import { useMoveStore } from '@/stores/useMoveStore';
 import TMBButton from '@/components/ui/TMBButton';
 import TMBInput from '@/components/ui/TMBInput';
+
+const VEHICLE_OPTIONS: { value: VehicleType; label: string; icon: string }[] = [
+  { value: VehicleType.CAMIONNETTE,  label: 'Camionnette',    icon: 'car-outline' },
+  { value: VehicleType.CAMION_20M3,  label: 'Camion 20 m³',   icon: 'bus-outline' },
+  { value: VehicleType.CAMION_40M3,  label: 'Camion 40 m³',   icon: 'bus-outline' },
+  { value: VehicleType.AUTRE,        label: 'Autre',           icon: 'cube-outline' },
+];
 
 const MONTHS = [
   'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
@@ -162,6 +169,24 @@ export default function NewMoveScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Extended fields
+  const [vehicleType, setVehicleType] = useState<VehicleType | null>(null);
+  const [estimatedWeight, setEstimatedWeight] = useState('');
+  const [contacts, setContacts] = useState<ContactPerson[]>([]);
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+
+  const addContact = () => {
+    if (!contactName.trim()) return;
+    setContacts(prev => [...prev, { name: contactName.trim(), phone: contactPhone.trim() || undefined }]);
+    setContactName('');
+    setContactPhone('');
+  };
+
+  const removeContact = (index: number) => {
+    setContacts(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleCreate = async () => {
     if (!name.trim()) {
       Alert.alert('Erreur', 'Veuillez saisir un nom pour le déménagement.');
@@ -176,6 +201,9 @@ export default function NewMoveScreen() {
         toAddress: toAddress.trim() || undefined,
         moveDate: moveDate ? formatDate(moveDate) : undefined,
         status: MoveStatus.PREPARATION,
+        vehicleType: vehicleType ?? undefined,
+        estimatedTotalWeight: estimatedWeight ? parseFloat(estimatedWeight) : undefined,
+        contactPersons: contacts.length > 0 ? contacts : undefined,
       });
       router.back();
     } catch (err) {
@@ -281,6 +309,79 @@ export default function NewMoveScreen() {
             <Text style={styles.clearDateText}>Effacer la date</Text>
           </Pressable>
         )}
+
+        {/* Vehicle type */}
+        <Text style={styles.sectionLabel}>Type de véhicule</Text>
+        <View style={styles.vehicleGrid}>
+          {VEHICLE_OPTIONS.map(opt => (
+            <Pressable
+              key={opt.value}
+              style={[styles.vehicleBtn, vehicleType === opt.value && styles.vehicleBtnActive]}
+              onPress={() => setVehicleType(vehicleType === opt.value ? null : opt.value)}
+            >
+              <Ionicons
+                name={opt.icon as any}
+                size={20}
+                color={vehicleType === opt.value ? Colors.surface : Colors.primary}
+              />
+              <Text style={[styles.vehicleBtnText, vehicleType === opt.value && styles.vehicleBtnTextActive]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Estimated weight */}
+        <TMBInput
+          label="Poids estimé (kg)"
+          placeholder="Ex: 1500"
+          icon="barbell-outline"
+          value={estimatedWeight}
+          onChangeText={setEstimatedWeight}
+          keyboardType="decimal-pad"
+        />
+
+        {/* Contact persons */}
+        <Text style={styles.sectionLabel}>Contacts déménagement</Text>
+        {contacts.map((c, i) => (
+          <View key={i} style={styles.contactChip}>
+            <Ionicons name="person-outline" size={16} color={Colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactChipName}>{c.name}</Text>
+              {c.phone && <Text style={styles.contactChipPhone}>{c.phone}</Text>}
+            </View>
+            <Pressable onPress={() => removeContact(i)} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={Colors.grey[400]} />
+            </Pressable>
+          </View>
+        ))}
+        <View style={styles.contactInputRow}>
+          <TextInput
+            style={[styles.contactInput, { flex: 1.4 }]}
+            placeholder="Prénom Nom"
+            placeholderTextColor={Colors.grey[400]}
+            value={contactName}
+            onChangeText={setContactName}
+            returnKeyType="next"
+          />
+          <TextInput
+            style={[styles.contactInput, { flex: 1 }]}
+            placeholder="Téléphone"
+            placeholderTextColor={Colors.grey[400]}
+            value={contactPhone}
+            onChangeText={setContactPhone}
+            keyboardType="phone-pad"
+            returnKeyType="done"
+            onSubmitEditing={addContact}
+          />
+          <Pressable
+            style={[styles.contactAddBtn, !contactName.trim() && { opacity: 0.4 }]}
+            onPress={addContact}
+            disabled={!contactName.trim()}
+          >
+            <Ionicons name="add" size={20} color={Colors.surface} />
+          </Pressable>
+        </View>
 
         <TMBButton
           title="Créer le déménagement"
@@ -411,6 +512,77 @@ const styles = StyleSheet.create({
   clearDate: { alignSelf: 'flex-end', paddingHorizontal: 4, marginBottom: 16 },
   clearDateText: { fontSize: 13, color: Colors.status.error, fontWeight: '500' },
   createBtn: { marginTop: 20 },
+
+  // Vehicle picker
+  vehicleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  vehicleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  vehicleBtnActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  vehicleBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  vehicleBtnTextActive: {
+    color: Colors.surface,
+  },
+
+  // Contacts
+  contactChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 6,
+  },
+  contactChipName: { fontSize: 14, fontWeight: '600', color: Colors.text.primary },
+  contactChipPhone: { fontSize: 12, color: Colors.text.secondary, marginTop: 1 },
+  contactInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  contactInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontSize: 15,
+    color: Colors.text.primary,
+  },
+  contactAddBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 const cal = StyleSheet.create({

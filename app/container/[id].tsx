@@ -1,5 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useQRSettingsStore } from '@/stores/useQRSettingsStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
+import ChecklistSection from '@/components/containers/ChecklistSection';
+import AIItemSuggestor from '@/components/containers/AIItemSuggestor';
+import { useObjectDetection, DetectedObject } from '@/hooks/useObjectDetection';
 import {
   View,
   Text,
@@ -92,7 +96,10 @@ export default function ContainerDetailScreen() {
     addPhotoToContainer,
   } = useContainerStore();
   const { printerStatus, printSticker } = usePrinterStore();
+  const { advancedMode } = useSettingsStore();
   const { fgColor: qrFg, bgColor: qrBg, showLogo: qrShowLogo, containerShape: qrShape, moduleShape: qrModule, eyeShape: qrEye, load: loadQR } = useQRSettingsStore();
+  const { detect, isLoading: aiLoading } = useObjectDetection();
+  const [aiDetections, setAiDetections] = useState<DetectedObject[]>([]);
 
   useEffect(() => { loadQR(); }, []);
 
@@ -234,6 +241,12 @@ export default function ContainerDetailScreen() {
     }
 
     if (result.canceled || !result.assets.length) return;
+
+    // Run AI detection on camera captures (gated on advancedMode)
+    if (fromCamera && advancedMode) {
+      setAiDetections([]);
+      detect(result.assets[0].uri).then(setAiDetections);
+    }
 
     // Show annotation modal before uploading
     setPendingAssets(result.assets);
@@ -557,6 +570,20 @@ export default function ContainerDetailScreen() {
           </View>
         </TMBCard>
 
+        {/* AI item suggestions (camera capture, advanced mode only) */}
+        {advancedMode && (
+          <AIItemSuggestor
+            detections={aiDetections}
+            isLoading={aiLoading}
+            onSelect={(label) => {
+              setNewItemName(label);
+              setAiDetections([]);
+              setShowAddItem(true);
+            }}
+            onDismiss={() => setAiDetections([])}
+          />
+        )}
+
         {/* Items */}
         <TMBCard style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -577,8 +604,13 @@ export default function ContainerDetailScreen() {
           )}
         </TMBCard>
 
+        {/* Checklist */}
+        <View style={styles.section}>
+          <ChecklistSection containerId={container.id} />
+        </View>
+
         {/* Photos */}
-        <TMBCard style={styles.section}>
+        {advancedMode && <TMBCard style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>Photos ({photos.length})</Text>
             <TouchableOpacity onPress={handlePhotoPress} style={styles.addBtn} disabled={uploadingPhotos}>
@@ -622,7 +654,7 @@ export default function ContainerDetailScreen() {
               </TouchableOpacity>
             </View>
           )}
-        </TMBCard>
+        </TMBCard>}
 
         {/* QR Code */}
         <TMBCard style={styles.section}>
@@ -654,16 +686,36 @@ export default function ContainerDetailScreen() {
             <Text style={styles.qrNameLabel}>{container.name}</Text>
             <Text style={styles.qrCodeText} numberOfLines={2}>{container.qrCodeData}</Text>
           </View>
-          <TMBButton
-            title={printing ? "Impression..." : "Imprimer l'étiquette"}
-            onPress={handlePrint}
-            variant="secondary"
-            icon="print-outline"
-            size="sm"
-            style={styles.printBtn}
-            loading={printing}
-            disabled={printing}
-          />
+          <View style={styles.printRow}>
+            <TMBButton
+              title="Standard"
+              onPress={handleExportPDF}
+              variant="secondary"
+              icon="share-outline"
+              size="sm"
+              style={{ flex: 1 }}
+            />
+            <TMBButton
+              title={printing ? "..." : "Bluetooth"}
+              onPress={handlePrint}
+              variant="secondary"
+              icon="print-outline"
+              size="sm"
+              style={{ flex: 1 }}
+              loading={printing}
+              disabled={printing}
+            />
+          </View>
+          {advancedMode && (
+            <TMBButton
+              title="Mesurer avec LiDAR"
+              onPress={() => router.push(`/container/lidar?containerId=${container.id}` as any)}
+              variant="secondary"
+              icon="scan-outline"
+              size="sm"
+              style={{ marginTop: 8 }}
+            />
+          )}
         </TMBCard>
 
         {/* Third party */}
@@ -1147,6 +1199,7 @@ const styles = StyleSheet.create({
     textAlign: 'center', maxWidth: 240,
   },
   printBtn: { marginTop: 8 },
+  printRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
 
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   infoText: { fontSize: 14, color: Colors.text.primary },

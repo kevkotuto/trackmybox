@@ -5,9 +5,13 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
+  RelationId,
 } from 'typeorm';
 import { Item } from '../items/item.entity';
 import { Photo } from '../photos/photo.entity';
+import { ChecklistItem } from '../checklists/checklist-item.entity';
 
 export enum ContainerType {
   CARTON = 'carton',
@@ -63,8 +67,21 @@ export class Container {
   @Column({ type: 'datetime', nullable: true })
   scannedAt: Date;
 
-  @Column({ nullable: true })
+  @RelationId((c: Container) => c.move)
   moveId: string;
+
+  @ManyToOne('Move', 'containers', { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'moveId' })
+  move: any;
+
+  @Column({ type: 'float', nullable: true })
+  widthCm: number;
+
+  @Column({ type: 'float', nullable: true })
+  heightCm: number;
+
+  @Column({ type: 'float', nullable: true })
+  depthCm: number;
 
   @Column({ unique: true })
   qrCodeData: string;
@@ -92,4 +109,7 @@ export class Container {
 
   @OneToMany(() => Photo, (photo) => photo.container)
   photos: Photo[];
+
+  @OneToMany(() => ChecklistItem, (ci) => ci.container)
+  checklistItems: ChecklistItem[];
 }

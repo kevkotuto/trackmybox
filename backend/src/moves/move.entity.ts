@@ -4,7 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
+import { Container } from '../containers/container.entity';
+import { Room } from '../rooms/room.entity';
 
 export enum MoveStatus {
   PREPARATION = 'preparation',
@@ -40,6 +43,21 @@ export class Move {
 
   @Column({ type: 'datetime', nullable: true })
   completedAt: Date;
+
+  @Column({ nullable: true })
+  vehicleType: string;
+
+  @Column({ type: 'float', nullable: true })
+  estimatedTotalWeight: number;
+
+  @Column({ type: 'text', nullable: true })
+  contactPersons: string; // JSON-serialized: [{ name, phone? }]
+
+  @OneToMany(() => Container, (c) => c.move)
+  containers: Container[];
+
+  @OneToMany(() => Room, (r) => r.move)
+  rooms: Room[];
 
   @CreateDateColumn()
   createdAt: Date;

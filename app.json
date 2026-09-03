@@ -65,8 +65,15 @@
           }
         }
       ],
-      "expo-barcode-scanner",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "$(PRODUCT_NAME) utilise la caméra pour scanner les QR codes, prendre des photos de cartons et mesurer les dimensions via LiDAR.",
+          "enableFrameProcessors": true,
+          "enableLocation": false
+        }
+      ],
     ],
     "experiments": {
       "typedRoutes": true,

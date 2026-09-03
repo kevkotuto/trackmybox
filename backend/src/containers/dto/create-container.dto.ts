@@ -4,6 +4,8 @@ import {
   IsEnum,
   IsBoolean,
   IsDateString,
+  IsNumber,
+  ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
@@ -49,8 +51,24 @@ export class CreateContainerDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @ValidateIf((o) => o.moveId !== null)
   @IsString()
-  moveId?: string;
+  moveId?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  widthCm?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  heightCm?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  depthCm?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

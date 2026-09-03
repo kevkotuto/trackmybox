@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsEnum, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDateString, IsNumber, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MoveStatus } from '../move.entity';
 
@@ -31,4 +32,19 @@ export class CreateMoveDto {
   @IsOptional()
   @IsDateString()
   moveDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  vehicleType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  estimatedTotalWeight?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  contactPersons?: string;
 }

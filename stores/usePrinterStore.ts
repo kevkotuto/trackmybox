@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PrinterStatus, BLEDevice, StickerData } from '../types';
+import QRCode from 'qrcode';
+
+const SAVED_PRINTER_KEY = '@tmb_saved_printer';
 
 // ─── MX06 BLE UUIDs (reverse-engineered from iPrint/Fun Print apps) ───────────
 const MX06_SERVICE = '0000AE30-0000-1000-8000-00805F9B34FB';
@@ -149,8 +153,8 @@ function renderLabel(lines: string[]): Uint8Array[] {
   const allRows: Uint8Array[] = [];
   const blank = () => new Uint8Array(COLS);
 
-  // Top padding
-  for (let i = 0; i < 12; i++) allRows.push(blank());
+  // Top padding — none, StartLattice already positions the head
+  // (removing avoids the large blank gap before text)
 
   for (const line of wrapped) {
     // pixel canvas for this line: CHAR_H rows × 384 cols
@@ -176,13 +180,13 @@ function renderLabel(lines: string[]): Uint8Array[] {
       }
     }
 
-    // Convert canvas rows to 48-byte rows
+    // MX06 expects LSB-first bit order within each byte (bit 0 = leftmost pixel)
     for (const pixelRow of canvas) {
       const byteRow = new Uint8Array(COLS);
       for (let b = 0; b < COLS; b++) {
         let byte = 0;
         for (let bit = 0; bit < 8; bit++) {
-          byte |= (pixelRow[b * 8 + bit] ?? 0) << (7 - bit);
+          byte |= (pixelRow[b * 8 + bit] ?? 0) << bit;
         }
         byteRow[b] = byte;
       }
@@ -199,6 +203,58 @@ function renderLabel(lines: string[]): Uint8Array[] {
   return allRows;
 }
 
+/**
+ * Generate a QR code bitmap for the MX06 printer.
+ * Returns 48-byte rows (384px wide), centered, with quiet zone.
+ */
+async function renderQRBitmap(data: string): Promise<Uint8Array[]> {
+  const PRINT_W = 384;
+  const COLS    = 48;
+
+  const qr = await QRCode.create(data, { errorCorrectionLevel: 'M' });
+  const qrSize = qr.modules.size;
+
+  // Scale so QR fills ~70% of print width, min 2px per module
+  const scale   = Math.max(2, Math.floor((PRINT_W * 0.70) / qrSize));
+  const imgW    = qrSize * scale;
+  const offsetX = Math.floor((PRINT_W - imgW) / 2);
+
+  const rows: Uint8Array[] = [];
+  // Quiet-zone top (2 modules)
+  const blankRow = new Uint8Array(COLS);
+  for (let i = 0; i < scale * 2; i++) rows.push(blankRow);
+
+  for (let y = 0; y < qrSize; y++) {
+    const pixelRow = new Array(PRINT_W).fill(0);
+    for (let x = 0; x < qrSize; x++) {
+      const isDark = qr.modules.data[y * qrSize + x] === 1;
+      if (isDark) {
+        for (let sx = 0; sx < scale; sx++) {
+          const px = offsetX + x * scale + sx;
+          if (px < PRINT_W) pixelRow[px] = 1;
+        }
+      }
+    }
+    // Each module row = `scale` pixel rows
+    // MX06 expects LSB-first bit order within each byte (bit 0 = leftmost pixel)
+    const byteRow = new Uint8Array(COLS);
+    for (let b = 0; b < COLS; b++) {
+      let byte = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        byte |= (pixelRow[b * 8 + bit] ?? 0) << bit;
+      }
+      byteRow[b] = byte;
+    }
+    for (let sy = 0; sy < scale; sy++) {
+      rows.push(new Uint8Array(byteRow));
+    }
+  }
+
+  // Quiet-zone bottom
+  for (let i = 0; i < scale * 2; i++) rows.push(blankRow);
+  return rows;
+}
+
 // ─── Zustand Store ────────────────────────────────────────────────────────────
 export type PrinterMode = 'ble' | 'system';
 
@@ -207,7 +263,9 @@ interface PrinterState {
   printerMode: PrinterMode;
   connectedDevice: BLEDevice | null;
   availableDevices: BLEDevice[];
+  savedDevices: BLEDevice[];
   error: string | null;
+  toast: string | null;
 
   setMode: (mode: PrinterMode) => void;
   startScan: () => Promise<void>;
@@ -215,7 +273,9 @@ interface PrinterState {
   connectToDevice: (device: BLEDevice) => Promise<void>;
   disconnect: () => Promise<void>;
   printSticker: (data: StickerData) => Promise<void>;
+  tryAutoReconnect: () => Promise<void>;
   clearError: () => void;
+  clearToast: () => void;
 }
 
 export const usePrinterStore = create<PrinterState>((set, get) => ({
@@ -223,7 +283,9 @@ export const usePrinterStore = create<PrinterState>((set, get) => ({
   printerMode: 'ble',
   connectedDevice: null,
   availableDevices: [],
+  savedDevices: [],
   error: null,
+  toast: null,
 
   setMode: (mode) => set({ printerMode: mode }),
 
@@ -237,7 +299,19 @@ export const usePrinterStore = create<PrinterState>((set, get) => ({
     set({ printerStatus: 'scanning', availableDevices: [], error: null });
 
     try {
-      const state = await manager.state();
+      // Wait up to 3s for BLE to become ready (avoids false 'Unknown' state on init)
+      const state = await new Promise<string>((resolve) => {
+        manager.state().then((s: string) => {
+          if (s === 'PoweredOn') { resolve(s); return; }
+          const sub = manager.onStateChange((newState: string) => {
+            if (newState === 'PoweredOn' || newState === 'PoweredOff' || newState === 'Unauthorized') {
+              sub.remove(); resolve(newState);
+            }
+          }, true);
+          setTimeout(() => { sub.remove(); resolve(s); }, 3000);
+        });
+      });
+
       if (state !== 'PoweredOn') {
         set({ error: 'Activez le Bluetooth pour continuer', printerStatus: 'error' });
         return;
@@ -309,10 +383,15 @@ export const usePrinterStore = create<PrinterState>((set, get) => ({
         _writeUUID   = ALT_WRITE;
       }
 
-      set({
-        printerStatus: 'connected',
-        connectedDevice: { id: connected.id, name: connected.name, rssi: connected.rssi ?? undefined },
-      });
+      const bleDevice: BLEDevice = { id: connected.id, name: connected.name ?? device.name, rssi: connected.rssi ?? undefined };
+      set({ printerStatus: 'connected', connectedDevice: bleDevice });
+
+      // Persist to saved devices
+      const current = get().savedDevices;
+      const already = current.some(d => d.id === bleDevice.id);
+      const updated = already ? current : [...current, { id: bleDevice.id, name: bleDevice.name }];
+      set({ savedDevices: updated });
+      AsyncStorage.setItem(SAVED_PRINTER_KEY, JSON.stringify(updated)).catch(() => {});
 
       // Listen for disconnection
       manager.onDeviceDisconnected(device.id, () => {
@@ -350,14 +429,28 @@ export const usePrinterStore = create<PrinterState>((set, get) => ({
     set({ printerStatus: 'printing', error: null });
 
     try {
-      // Request larger MTU for faster transfer
+      // Request larger MTU for less fragmentation
       try { await manager.requestMTUForDevice(connectedDevice.id, 247); } catch {}
 
-      // Set print energy (darkness)
-      await sendCmd(manager, connectedDevice.id, 0xaf, [0x1f, 0x40]); // ~8000
-      await sleep(50);
+      // ── Full MX06 print sequence (per NaitLee/Cat-Printer reference) ──────────
 
-      // Build label content lines
+      // 1. Set 200 DPI quality
+      await sendCmd(manager, connectedDevice.id, 0xa4, [50]);
+      await sleep(20);
+
+      // 2. Set thermal energy (darkness) and apply it
+      // Protocol is little-endian: [lo, hi]. 0xFFFF = max energy = darkest print.
+      await sendCmd(manager, connectedDevice.id, 0xaf, [0xff, 0xff]);
+      await sleep(20);
+      await sendCmd(manager, connectedDevice.id, 0xbe, [0x01]); // ApplyEnergy
+      await sleep(20);
+
+      // 3. StartLattice — marks begin of print job
+      await sendCmd(manager, connectedDevice.id, 0xa6,
+        [0xaa,0x55,0x17,0x38,0x44,0x5f,0x5f,0x5f,0x44,0x38,0x2c]);
+      await sleep(20);
+
+      // Build label content
       const typeLabel: Record<string, string> = {
         carton: 'CARTON', sac: 'SAC', valise: 'VALISE',
         boite: 'BOITE', dossier: 'DOSSIER', sachet: 'SACHET',
@@ -371,20 +464,42 @@ export const usePrinterStore = create<PrinterState>((set, get) => ({
         `#${data.containerNumber} - ${typeLabel[data.type] ?? data.type}`,
         priorityLabel[data.priority] ?? data.priority,
         ...(data.roomName ? [data.roomName.toUpperCase()] : []),
-        '---',
-        data.qrCodeData,
       ];
 
-      // Render and send bitmap rows
-      const rows = renderLabel(lines);
+      // Render text rows then QR bitmap rows
+      const textRows = renderLabel(lines);
+      const qrRows   = await renderQRBitmap(data.qrCodeData);
+      const rows     = [...textRows, ...qrRows];
 
-      for (const row of rows) {
-        await sendCmd(manager, connectedDevice.id, 0xa2, Array.from(row));
-        await sleep(8);
+      // 4. Send bitmap rows with conservative timing to prevent MX06 buffer overflow.
+      // Printer stops mid-print when overwhelmed — send 1 row every 30ms,
+      // with a longer pause every 3 rows to let the thermal head catch up.
+      const BATCH_SIZE  = 3;
+      const BATCH_DELAY = 120; // ms — longer pause between batches
+      const ROW_DELAY   = 30;  // ms — between individual rows
+
+      for (let i = 0; i < rows.length; i++) {
+        await sendCmd(manager, connectedDevice.id, 0xa2, Array.from(rows[i]));
+        if ((i + 1) % BATCH_SIZE === 0) {
+          await sleep(BATCH_DELAY);
+        } else {
+          await sleep(ROW_DELAY);
+        }
       }
 
-      // Feed paper out
-      await sendCmd(manager, connectedDevice.id, 0xa1, [100, 0]);
+      // 5. EndLattice — marks end of print job
+      await sendCmd(manager, connectedDevice.id, 0xa6,
+        [0xaa,0x55,0x17,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x17]);
+      await sleep(20);
+
+      // 6. MX06 bug: FeedPaper (0xa1) doesn't work on MX05/MX06/MX08/MX09/MX10.
+      // Workaround: send blank bitmap rows to push paper past the cutter.
+      // 70 rows ≈ 8.7mm — enough margin to cut cleanly.
+      const blankRow = new Uint8Array(48);
+      for (let i = 0; i < 70; i++) {
+        await sendCmd(manager, connectedDevice.id, 0xa2, Array.from(blankRow));
+        await sleep(20);
+      }
 
       set({ printerStatus: 'connected' });
     } catch (err) {
@@ -393,5 +508,66 @@ export const usePrinterStore = create<PrinterState>((set, get) => ({
     }
   },
 
+  tryAutoReconnect: async () => {
+    try {
+      const raw = await AsyncStorage.getItem(SAVED_PRINTER_KEY);
+      if (!raw) return;
+      const saved: BLEDevice[] = JSON.parse(raw);
+      if (!saved.length) return;
+      set({ savedDevices: saved });
+
+      const manager = await getBleManager();
+      if (!manager) return;
+
+      // Wait up to 8s for BLE to become ready (app just launched, radio may not be up yet)
+      const state = await new Promise<string>((resolve) => {
+        manager.state().then((s: string) => {
+          if (s === 'PoweredOn') { resolve(s); return; }
+          const sub = manager.onStateChange((newState: string) => {
+            if (newState === 'PoweredOn' || newState === 'PoweredOff' || newState === 'Unauthorized') {
+              sub.remove(); resolve(newState);
+            }
+          }, true);
+          setTimeout(() => { sub.remove(); resolve(s); }, 8000);
+        }).catch(() => resolve('Unknown'));
+      });
+      if (state !== 'PoweredOn') return;
+
+      for (const device of saved) {
+        try {
+          const alreadyConn = await manager.isDeviceConnected(device.id).catch(() => false);
+          let bleDevice: BLEDevice;
+
+          if (alreadyConn) {
+            bleDevice = device;
+          } else {
+            const connected = await manager.connectToDevice(device.id, { timeout: 6000 });
+            await connected.discoverAllServicesAndCharacteristics();
+            const services = await connected.services();
+            const uuids: string[] = services.map((s: any) => s.uuid.toUpperCase());
+            if (uuids.some((u: string) => u.includes('AE30'))) {
+              _serviceUUID = MX06_SERVICE; _writeUUID = MX06_WRITE;
+            } else if (uuids.some((u: string) => u.includes('FF00'))) {
+              _serviceUUID = ALT_SERVICE; _writeUUID = ALT_WRITE;
+            }
+            bleDevice = { id: connected.id, name: connected.name ?? device.name, rssi: connected.rssi ?? undefined };
+            manager.onDeviceDisconnected(device.id, () => {
+              set({ printerStatus: 'disconnected', connectedDevice: null });
+            });
+          }
+
+          set({ printerStatus: 'connected', connectedDevice: bleDevice, toast: `🖨️ ${bleDevice.name} reconnectée` });
+          setTimeout(() => set({ toast: null }), 3500);
+          return;
+        } catch {
+          // Device unreachable, try next
+        }
+      }
+    } catch {
+      // Best-effort, fail silently
+    }
+  },
+
   clearError: () => set({ error: null }),
+  clearToast: () => set({ toast: null }),
 }));

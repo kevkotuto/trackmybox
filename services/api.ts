@@ -9,6 +9,7 @@ import {
   ContainerStatus,
   ContainerType,
   ContainerPriority,
+  ChecklistItem,
 } from '../types';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://trackmybox.generale-ci.com/api/v1';
@@ -19,6 +20,15 @@ const client: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+client.interceptors.request.use((config) => {
+  try {
+    const { useAuthStore } = require('../stores/useAuthStore');
+    const token = useAuthStore.getState().token;
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  } catch {}
+  return config;
 });
 
 client.interceptors.response.use(
@@ -84,7 +94,7 @@ export const containerApi = {
   },
 
   async update(id: string, containerData: UpdateContainerData): Promise<Container> {
-    const { data } = await client.put<Container>(`/containers/${id}`, containerData);
+    const { data } = await client.patch<Container>(`/containers/${id}`, containerData);
     return data;
   },
 
@@ -186,6 +196,70 @@ export const roomApi = {
 
   async delete(id: string): Promise<void> {
     await client.delete(`/rooms/${id}`);
+  },
+};
+
+// ---------- Checklist ----------
+
+export const checklistApi = {
+  async getByContainer(containerId: string): Promise<ChecklistItem[]> {
+    const { data } = await client.get<ChecklistItem[]>(`/containers/${containerId}/checklist`);
+    return data;
+  },
+
+  async create(containerId: string, label: string): Promise<ChecklistItem> {
+    const { data } = await client.post<ChecklistItem>(`/containers/${containerId}/checklist`, { label });
+    return data;
+  },
+
+  async toggle(itemId: string, isDone: boolean): Promise<ChecklistItem> {
+    const { data } = await client.patch<ChecklistItem>(`/checklist/${itemId}`, { isDone });
+    return data;
+  },
+
+  async delete(itemId: string): Promise<void> {
+    await client.delete(`/checklist/${itemId}`);
+  },
+};
+
+// ---------- Auth ----------
+
+export const authApi = {
+  async createHousehold(name: string, deviceName: string, pin: string): Promise<{ code: string; householdId: string; token: string }> {
+    const { data } = await client.post('/auth/household', { name, deviceName, pin });
+    return data;
+  },
+
+  async joinHousehold(code: string, deviceName: string, pin: string): Promise<{ token: string; householdId: string }> {
+    const { data } = await client.post('/auth/join', { code, deviceName, pin });
+    return data;
+  },
+
+  async loginDevice(code: string, pin: string): Promise<{ token: string; householdId: string; code: string }> {
+    const { data } = await client.post('/auth/login', { code, pin });
+    return data;
+  },
+
+  async verifyPin(pin: string): Promise<{ token: string }> {
+    const { data } = await client.post('/auth/verify-pin', { pin });
+    return data;
+  },
+
+  async getDevices(): Promise<{ id: string; deviceName: string; createdAt: string }[]> {
+    const { data } = await client.get('/auth/household/devices');
+    return data;
+  },
+
+  async deleteHousehold(): Promise<void> {
+    await client.delete('/auth/household');
+  },
+};
+
+// ---------- Notifications ----------
+
+export const notificationsApi = {
+  async registerToken(expoPushToken: string): Promise<void> {
+    await client.post('/notifications/register', { expoPushToken });
   },
 };
 

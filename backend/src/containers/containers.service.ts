@@ -5,12 +5,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { Container } from './container.entity';
 import { CreateContainerDto } from './dto/create-container.dto';
 import { UpdateContainerDto } from './dto/update-container.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ContainersService {
   constructor(
     @InjectRepository(Container)
     private readonly repo: Repository<Container>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async findAll(filters: {
@@ -78,7 +80,15 @@ export class ContainersService {
     const container = await this.findOne(id);
     container.isScannedOnArrival = true;
     container.scannedAt = new Date();
-    return this.repo.save(container);
+    const saved = await this.repo.save(container);
+    if (saved.moveId) {
+      this.notificationsService.sendToHousehold(
+        saved.moveId,
+        'Carton arrivé ✓',
+        `"${saved.name}" a été scanné à l'arrivée.`,
+      ).catch(() => {});
+    }
+    return saved;
   }
 
   async remove(id: string): Promise<void> {

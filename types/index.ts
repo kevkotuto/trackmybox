@@ -26,6 +26,26 @@ export enum MoveStatus {
   COMPLETED = 'completed',
 }
 
+export enum VehicleType {
+  CAMIONNETTE = 'camionnette',
+  CAMION_20M3 = 'camion_20m3',
+  CAMION_40M3 = 'camion_40m3',
+  AUTRE = 'autre',
+}
+
+export interface ContactPerson {
+  name: string;
+  phone?: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  containerId: string;
+  label: string;
+  isDone: boolean;
+  order: number;
+}
+
 export interface Item {
   id: string;
   name: string;
@@ -67,14 +87,18 @@ export interface Container {
   destinationRoomId?: string;
   isScannedOnArrival: boolean;
   scannedAt?: string;
-  moveId?: string;
+  moveId?: string | null;
   qrCodeData: string;
   notes?: string;
   isThirdParty?: boolean;
   thirdPartyOwner?: string;
   returnDate?: string;
+  widthCm?: number;
+  heightCm?: number;
+  depthCm?: number;
   items: Item[];
   photos: Photo[];
+  checklistItems?: ChecklistItem[];
   createdAt: string;
   updatedAt: string;
 }
@@ -89,6 +113,9 @@ export interface Move {
   moveDate?: string;
   startedAt?: string;
   completedAt?: string;
+  vehicleType?: VehicleType;
+  estimatedTotalWeight?: number;
+  contactPersons?: ContactPerson[];
   createdAt: string;
   updatedAt: string;
 }

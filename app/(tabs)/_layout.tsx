@@ -1,11 +1,17 @@
 import { Colors } from "@/constants/colors";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useAuthStore } from "@/stores/useAuthStore";
 import { useRouter } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 
 export default function TabLayout() {
   const router = useRouter();
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+
+  // Don't render tabs until auth state is loaded from AsyncStorage.
+  // Prevents a flash of the tab UI before the auth modal appears.
+  if (!isHydrated) return <View style={{ flex: 1, backgroundColor: Colors.background }} />;
 
   return (
     <View style={styles.container}>

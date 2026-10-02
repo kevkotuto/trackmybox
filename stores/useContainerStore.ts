@@ -39,17 +39,28 @@ export const useContainerStore = create<ContainerState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const fetched = await containerApi.getAll(filters);
-      set((state) => ({
-        containers: fetched.map(newC => {
+      const hasFilter = filters && Object.values(filters).some(v => v != null);
+      set((state) => {
+        const merge = (newC: Container) => {
           const existing = state.containers.find(c => c.id === newC.id);
           return {
             ...newC,
             items: newC.items?.length ? newC.items : (existing?.items ?? []),
             photos: newC.photos?.length ? newC.photos : (existing?.photos ?? []),
           };
-        }),
-        isLoading: false,
-      }));
+        };
+        if (!hasFilter) {
+          // Full fetch — replace everything
+          return { containers: fetched.map(merge), isLoading: false };
+        }
+        // Filtered fetch — merge: update/add fetched, keep others intact
+        const fetchedIds = new Set(fetched.map(c => c.id));
+        const others = state.containers.filter(c => !fetchedIds.has(c.id));
+        return {
+          containers: [...fetched.map(merge), ...others],
+          isLoading: false,
+        };
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur lors du chargement';
       set({ error: message, isLoading: false });

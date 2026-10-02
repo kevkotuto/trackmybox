@@ -11,6 +11,7 @@ import { labelsPerSheet } from "@/services/labelFormats";
 import { useContainerStore } from "@/stores/useContainerStore";
 import { usePrinterStore } from "@/stores/usePrinterStore";
 import { useQRSettingsStore } from "@/stores/useQRSettingsStore";
+import { useSettingsStore } from "@/stores/useSettingsStore";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import * as Updates from "expo-updates";
 import { Stack, useRouter } from "expo-router";
@@ -104,8 +105,7 @@ export default function SettingsScreen() {
   const { containers, fetchContainers } = useContainerStore();
   const { load: loadQR } = useQRSettingsStore();
 
-  const [advancedMode,   setAdvancedMode]   = useState(false);
-  const [thirdPartyMode, setThirdPartyMode] = useState(true);
+  const { advancedMode, thirdPartyMode, setAdvancedMode, setThirdPartyMode, load: loadSettings } = useSettingsStore();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const handleCheckUpdate = async () => {
@@ -147,6 +147,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     fetchContainers();
     loadQR();
+    loadSettings();
   }, []);
 
   const isConnected = printerStatus === "connected" || printerStatus === "printing";
@@ -216,6 +217,20 @@ export default function SettingsScreen() {
             label={`Imprimer (${containers.length} carton${containers.length !== 1 ? "s" : ""})`}
             hint="Choisir les cartons et lancer l'impression"
             onPress={() => printSheetRef.current?.present()}
+            last
+          />
+        </View>
+
+        {/* ── Foyer ─────────────────────────────────────────────────── */}
+        <Text style={s.sectionTitle}>Foyer</Text>
+        <View style={s.card}>
+          <SettingRow
+            icon="person.2.fill"
+            iconBg={Colors.status.infoLight}
+            iconColor={Colors.status.info}
+            label="Mon foyer"
+            hint="Code d'invitation, appareils connectés, collaboration"
+            onPress={() => router.push('/settings/household' as any)}
             last
           />
         </View>

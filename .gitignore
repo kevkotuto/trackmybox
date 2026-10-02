@@ -50,3 +50,7 @@ backend/.env
 
 # Claude
 .claude/
+
+# Ajouté lors du nettoyage 2026-10-02 (généré / lourd / secrets)
+*.zip
+*.ipa

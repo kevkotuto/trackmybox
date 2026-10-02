@@ -52,6 +52,7 @@ export default function MovesScreen() {
 
     return (
       <Pressable
+        onPress={() => router.push(`/move/${item.id}` as any)}
         style={({ pressed }) => [
           styles.moveCard,
           isActive && styles.activeCard,

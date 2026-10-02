@@ -5,7 +5,7 @@ import { useContainerStore } from "@/stores/useContainerStore";
 import { useRoomStore } from "@/stores/useRoomStore";
 import { ContainerPriority, ContainerStatus, ContainerType } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     Alert,
@@ -58,6 +58,7 @@ const priorityOptions: {
 
 export default function NewContainerScreen() {
   const router = useRouter();
+  const { moveId } = useLocalSearchParams<{ moveId?: string }>();
   const { addContainer } = useContainerStore();
   const { rooms, fetchRooms } = useRoomStore();
   const [name, setName] = useState("");
@@ -95,6 +96,7 @@ export default function NewContainerScreen() {
         priority: selectedPriority,
         roomId: selectedRoom ?? undefined,
         destinationRoomId: selectedDestRoom ?? undefined,
+        moveId: moveId ?? undefined,
         notes: notes.trim() || undefined,
         isThirdParty,
         thirdPartyOwner:

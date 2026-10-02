@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image, ImageSourcePropType } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import TMBButton from './TMBButton';
 
 interface EmptyStateProps {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon?: keyof typeof Ionicons.glyphMap;
+  imageSource?: ImageSourcePropType;
   title: string;
   description?: string;
   actionTitle?: string;
@@ -14,6 +15,7 @@ interface EmptyStateProps {
 
 export default function EmptyState({
   icon,
+  imageSource,
   title,
   description,
   actionTitle,
@@ -22,7 +24,11 @@ export default function EmptyState({
   return (
     <View style={styles.container}>
       <View style={styles.iconWrapper}>
-        <Ionicons name={icon} size={56} color={Colors.grey[300]} />
+        {imageSource ? (
+          <Image source={imageSource} style={styles.logo} resizeMode="contain" />
+        ) : icon ? (
+          <Ionicons name={icon} size={56} color={Colors.grey[300]} />
+        ) : null}
       </View>
       <Text style={styles.title}>{title}</Text>
       {description && <Text style={styles.description}>{description}</Text>}
@@ -49,6 +55,10 @@ const styles = StyleSheet.create({
   },
   iconWrapper: {
     marginBottom: 16,
+  },
+  logo: {
+    width: 120,
+    height: 120,
   },
   title: {
     fontSize: 18,
